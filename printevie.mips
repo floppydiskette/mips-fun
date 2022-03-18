@@ -1,0 +1,12 @@
+# register t0 will be used as a pointer to the output i/o area in memory
+
+addi $t0, $0, 0x30
+sll $t0, $t0, 24
+addi $t0, $t0, 4
+
+# register t1 will be used to store an ascii code
+addi $t1, $0, 69
+sw $t1, 0($t0)
+
+# end
+jr $0
