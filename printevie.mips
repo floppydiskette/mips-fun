@@ -1,12 +1,73 @@
-# register t0 will be used as a pointer to the output i/o area in memory
+# we will print ascii code 69 "E"
+addi $a0, $0, 69
+jal printchar
+nop
 
-addi $t0, $0, 0x30
+# find a good area to store some data
+addi $t0, $0, 0x20 # navigate to data mem area
 sll $t0, $t0, 24
-addi $t0, $t0, 4
+add $a0, $0, $t0 # set arg0 to this address, for the printstring func
+addi $a1, $0, 10 # set arg1 to the length of the string
 
-# register t1 will be used to store an ascii code
+# we will print the word "VIE <3"
+
+# char V
+addi $t1, $0, 86
+sb $t1, 0($t0)
+
+# char I
+addi $t1, $0, 73
+sb $t1, 1($t0)
+
+# char E
 addi $t1, $0, 69
-sw $t1, 0($t0)
+sb $t1, 2($t0)
+
+# whitespace
+addi $t1, $0, 32
+sb $t1, 3($t0)
+
+# char <
+addi $t1, $0, 60
+sb $t1, 4($t0)
+
+# char 3
+addi $t1, $0, 51
+sb $t1, 5($t0)
+
+# print!
+jal printstring
+nop
+
 
 # end
 jr $0
+
+# $a0 should have the ascii code of the character to print
+# $t0 will by used by this function
+printchar:
+addi $t0, $0, 0x30
+sll $t0, $t0, 24
+addi $t0, $t0, 4
+sw $a0, 0($t0)
+jr $ra
+
+# $a0 should be the memory address of the string
+# $a1 should be the length to print
+printstring:
+add $s0, $0, $ra # save a copy of the return address
+add $s1, $0, $a0 # save a copy of arg0
+add $s2, $0, $a1
+loop:
+beq $s2, $0, 8 # goes 11 instructions ahead if length is 0
+lb $t0, 0($s1) # load first byte
+addi $s1, $s1, 1 # store the addr of the next char in register $s1
+addi $t2, $0, 1 # temporary 1
+sub $s2, $s2, $t2 # subtract 1 from amount of chars to print
+add $a0, $0, $t0 # load the character into argument register
+jal printchar
+nop
+j loop
+nop
+jr $0
+jr $s0 # we're done! go back to the original return address
