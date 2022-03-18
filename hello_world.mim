@@ -1,0 +1,6 @@
+print "hello world!"
+let x 1
+let y future
+addi y x 2
+print y
+ret

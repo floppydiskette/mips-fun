@@ -59,7 +59,7 @@ add $s0, $0, $ra # save a copy of the return address
 add $s1, $0, $a0 # save a copy of arg0
 add $s2, $0, $a1
 loop:
-beq $s2, $0, 8 # goes 11 instructions ahead if length is 0
+beq $s2, $0, fini # goes 11 instructions ahead if length is 0
 lb $t0, 0($s1) # load first byte
 addi $s1, $s1, 1 # store the addr of the next char in register $s1
 addi $t2, $0, 1 # temporary 1
@@ -69,5 +69,5 @@ jal printchar
 nop
 j loop
 nop
-jr $0
-jr $s0 # we're done! go back to the original return address
+fini:
+jr $0 # we're done! go back to the original return address
