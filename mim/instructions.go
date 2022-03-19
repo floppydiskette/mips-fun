@@ -64,7 +64,22 @@ func (c *Context) handleAddi(args string) error {
 	// or var1, 0, number
 	argsArray := strings.Split(args, " ")
 	if len(argsArray) != 3 {
-		return fmt.Errorf("addi: invalid number of arguments")
+		// if two args, then it is just var1 + number
+		if len(argsArray) == 2 {
+			varname := argsArray[0]
+			number, err := strconv.Atoi(argsArray[1])
+			if err != nil {
+				return fmt.Errorf("addi: %s", err)
+			}
+			for i := 0; i < len(ourProgram.variables); i++ {
+				if ourProgram.variables[i].Name == varname {
+					ourProgram.variables[i].Value += uint8(number)
+					return nil
+				}
+			}
+		} else {
+			return fmt.Errorf("addi: invalid number of arguments")
+		}
 	}
 	// first argument should be a variable name
 	varAname := argsArray[0]
@@ -87,7 +102,7 @@ func (c *Context) handleAddi(args string) error {
 			for _, variableA := range ourProgram.variables {
 				if variableA.Name == varAname {
 					// add the two variables
-					tmpResult = varValue + int(variable.Value)
+					tmpResult = int(variable.Value) + varValue
 					// check if the result is a number
 					if tmpResult > 255 {
 						return fmt.Errorf("addi: result is too large")
