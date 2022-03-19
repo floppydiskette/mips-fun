@@ -27,8 +27,21 @@ type Instruction struct {
 	RegistersUsed []uint8
 }
 
+const (
+	RegisterOutputIO = iota
+	RegisterCharacterHolder
+	RegisterGeneral
+)
+
+type Register struct {
+	Name         uint8
+	InUse        bool
+	ToBeReleased bool
+	Type         int
+}
+
 type Context struct {
-	TemporaryRegistersInUse map[uint8]bool
+	TemporaryRegistersInUse []Register
 	Instructions            []*Instruction
 }
 

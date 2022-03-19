@@ -178,26 +178,28 @@ func (c *Context) handlePrint(s string) error {
 		sw (previous register), 0(mem address of output)
 	*/
 	// addi (unused register), $0, (ascii code)
-	ioReg := c.FindUnusedTemporaryRegister()
+	ioReg, preExisting := c.FindUnusedTemporaryRegister(RegisterOutputIO)
 
-	// setup the register
-	c.AddInstruction(&Instruction{
-		Opcode:        "addi",
-		Args:          fmt.Sprintf("$t%d, $0, 0x30", ioReg),
-		RegistersUsed: []uint8{ioReg},
-	}, false)
-	c.AddInstruction(&Instruction{
-		Opcode:        "sll",
-		Args:          fmt.Sprintf("$t%d, $t%d, 24", ioReg, ioReg),
-		RegistersUsed: []uint8{ioReg},
-	}, false)
-	c.AddInstruction(&Instruction{
-		Opcode:        "addi",
-		Args:          fmt.Sprintf("$t%d, $t%d, 4", ioReg, ioReg),
-		RegistersUsed: []uint8{ioReg},
-	}, false)
+	if !preExisting {
+		// setup the register
+		c.AddInstruction(&Instruction{
+			Opcode:        "addi",
+			Args:          fmt.Sprintf("$t%d, $0, 0x30", ioReg),
+			RegistersUsed: []uint8{ioReg},
+		}, false)
+		c.AddInstruction(&Instruction{
+			Opcode:        "sll",
+			Args:          fmt.Sprintf("$t%d, $t%d, 24", ioReg, ioReg),
+			RegistersUsed: []uint8{ioReg},
+		}, false)
+		c.AddInstruction(&Instruction{
+			Opcode:        "addi",
+			Args:          fmt.Sprintf("$t%d, $t%d, 4", ioReg, ioReg),
+			RegistersUsed: []uint8{ioReg},
+		}, false)
+	}
 
-	tmpCharReg := c.FindUnusedTemporaryRegister()
+	tmpCharReg, _ := c.FindUnusedTemporaryRegister(RegisterCharacterHolder)
 	// for each ascii code, generate assembly
 	for _, asciiCode := range asciiCodes {
 		c.AddInstruction(&Instruction{

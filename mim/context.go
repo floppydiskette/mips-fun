@@ -1,12 +1,14 @@
 package main
 
+import "fmt"
+
 func CreateMainContext() *Context {
 	// make map of temporary registers in use
-	tmpRegisters := make(map[uint8]bool)
+	var tmpRegisters []Register
 	// set each to false
 	var i uint8
 	for i = 0; i <= 9; i++ {
-		tmpRegisters[i] = false
+		tmpRegisters = append(tmpRegisters, Register{i, false, false, -1})
 	}
 	return &Context{
 		TemporaryRegistersInUse: tmpRegisters,
@@ -14,19 +16,38 @@ func CreateMainContext() *Context {
 	}
 }
 
-func (c *Context) FindUnusedTemporaryRegister() uint8 {
-	var i uint8
-	for i = 0; i <= 9; i++ {
-		if !c.TemporaryRegistersInUse[i] {
-			c.TemporaryRegistersInUse[i] = true
-			return i
+// if returns true, then we already have a good register
+func (c *Context) FindUnusedTemporaryRegister(typeOf int) (uint8, bool) {
+	// if type is RegisterOutputIO, find either used or unused register
+	for i := 0; i <= 9; i++ {
+		if c.TemporaryRegistersInUse[i].Type == typeOf && c.TemporaryRegistersInUse[i].Type != RegisterGeneral {
+			fmt.Println("Found good IO register: ", i)
+			c.TemporaryRegistersInUse[i].ToBeReleased = false
+			c.TemporaryRegistersInUse[i].InUse = true
+			c.TemporaryRegistersInUse[i].Type = typeOf
+			return uint8(i), true
 		}
 	}
-	return 0
+	for i := 0; i <= 9; i++ {
+		if c.TemporaryRegistersInUse[i].InUse == false {
+			c.TemporaryRegistersInUse[i].InUse = true
+			c.TemporaryRegistersInUse[i].Type = typeOf
+			return uint8(i), false
+		}
+	}
+	for i := 0; i <= 9; i++ {
+		if c.TemporaryRegistersInUse[i].ToBeReleased == true {
+			c.TemporaryRegistersInUse[i].ToBeReleased = false
+			c.TemporaryRegistersInUse[i].InUse = true
+			c.TemporaryRegistersInUse[i].Type = typeOf
+			return uint8(i), false
+		}
+	}
+	return 200, false
 }
 
 func (c *Context) ReleaseTemporaryRegister(reg uint8) {
-	c.TemporaryRegistersInUse[reg] = false
+	c.TemporaryRegistersInUse[reg].ToBeReleased = true
 }
 
 func (c *Context) AddInstruction(instruction *Instruction, freeTmp bool) {
