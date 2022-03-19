@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -16,17 +17,45 @@ type StringVariable struct {
 	Value string
 }
 
+type FutureVariable struct {
+	Name string
+}
+
+type Instruction struct {
+	Opcode        string
+	Args          string
+	RegistersUsed []uint8
+}
+
+type Context struct {
+	TemporaryRegistersInUse map[uint8]bool
+	Instructions            []*Instruction
+}
+
 type Program struct {
 	code       []string
 	variables  []Variable
 	stringVars []StringVariable
+	futureVars []FutureVariable
+	contexts   []*Context
 }
 
 var ourProgram Program
 
+func RemoveAtIndex(i int, f []FutureVariable) []FutureVariable {
+	if i >= len(f) {
+		return f
+	}
+	return append(f[:i], f[i+1:]...)
+}
+
 func parseLine(line string) (string, string) {
 	// make line lowercase
 	line = strings.ToLower(line)
+	// if there are no spaces, then there is no args
+	if strings.Index(line, " ") == -1 {
+		return line, ""
+	}
 	// first word is the instruction
 	instruction := line[:strings.Index(line, " ")]
 	// rest is the arguments
@@ -34,16 +63,30 @@ func parseLine(line string) (string, string) {
 	return instruction, args
 }
 
-func handleInstruction(instruction string, arguments string) (string, error) {
+// takes in an instruction and its arguments and returns the assembly code for it
+func (c *Context) handleInstruction(instruction string, arguments string) error {
 	switch instruction {
 	case "print":
-		return handlePrint(arguments)
+		return c.handlePrint(arguments)
 	case "let":
 		return handleLet(arguments)
+	case "addi":
+		return c.handleAddi(arguments)
+	case "ret":
+		c.AddInstruction(&Instruction{Opcode: "jr", Args: "$0", RegistersUsed: nil}, false)
+		return nil
 	default:
 		// return error
-		return "", fmt.Errorf("invalid instruction")
+		return fmt.Errorf("invalid instruction")
 	}
+}
+
+func (c *Context) compileInstructions() []string {
+	var assembly []string
+	for _, instruction := range c.Instructions {
+		assembly = append(assembly, fmt.Sprintf("%s %s", instruction.Opcode, instruction.Args))
+	}
+	return assembly
 }
 
 func main() {
@@ -60,4 +103,47 @@ func main() {
 		outfile = os.Args[2]
 	}
 
+	mainContext := CreateMainContext()
+	ourProgram.contexts = append(ourProgram.contexts, mainContext)
+
+	// read in the file
+	file, err := ioutil.ReadFile(infile)
+	if err != nil {
+		fmt.Println("Error reading file:", err)
+		os.Exit(1)
+	}
+
+	// split the file into lines
+	lines := strings.Split(string(file), "\n")
+
+	// parse each line
+	lineNum := 1
+	for _, line := range lines {
+		if len(line) == 0 {
+			continue
+		}
+		lineNum++
+		// parse the line
+		instruction, args := parseLine(line)
+
+		// handle the instruction
+		err := mainContext.handleInstruction(instruction, args)
+		if err != nil {
+			fmt.Println("Error handling instruction: ", err)
+			fmt.Println("Line: ", lineNum)
+			os.Exit(1)
+		}
+	}
+
+	// compile the instructions
+	for _, context := range ourProgram.contexts {
+		context.compileInstructions()
+	}
+
+	// write the assembly code to the outfile
+	err = ioutil.WriteFile(outfile, []byte(strings.Join(ourProgram.contexts[0].compileInstructions(), "\n")), 0644)
+	if err != nil {
+		fmt.Println("Error writing file:", err)
+		os.Exit(1)
+	}
 }
