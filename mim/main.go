@@ -13,8 +13,9 @@ type Variable struct {
 }
 
 type StringVariable struct {
-	Name  string
-	Value string
+	Name     string
+	Value    string
+	Constant bool
 }
 
 type FutureVariable struct {
@@ -29,7 +30,9 @@ type Instruction struct {
 
 const (
 	RegisterOutputIO = iota
+	RegisterInputIO
 	RegisterCharacterHolder
+	RegisterMemoryBeginning
 	RegisterGeneral
 )
 
@@ -42,7 +45,9 @@ type Register struct {
 
 type Context struct {
 	TemporaryRegistersInUse []Register
+	SavedRegistersInUse     []Register
 	Instructions            []*Instruction
+	LoopCounter             int
 }
 
 type Program struct {
@@ -81,6 +86,8 @@ func (c *Context) handleInstruction(instruction string, arguments string) error 
 	switch instruction {
 	case "print":
 		return c.handlePrint(arguments)
+	case "read":
+		return c.handleRead(arguments)
 	case "let":
 		return handleLet(arguments)
 	case "addi":

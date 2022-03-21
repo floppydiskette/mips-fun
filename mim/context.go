@@ -10,8 +10,15 @@ func CreateMainContext() *Context {
 	for i = 0; i <= 9; i++ {
 		tmpRegisters = append(tmpRegisters, Register{i, false, false, -1})
 	}
+	// make map of saved registers
+	var savedRegisters []Register
+	// set each to false
+	for i = 0; i <= 9; i++ {
+		savedRegisters = append(savedRegisters, Register{i, false, false, -1})
+	}
 	return &Context{
 		TemporaryRegistersInUse: tmpRegisters,
+		SavedRegistersInUse:     savedRegisters,
 		Instructions:            []*Instruction{},
 	}
 }
@@ -46,7 +53,30 @@ func (c *Context) FindUnusedTemporaryRegister(typeOf int) (uint8, bool) {
 	return 200, false
 }
 
+func (c *Context) FindUnusedSavedRegister() uint8 {
+	for i := 0; i <= 9; i++ {
+		if c.SavedRegistersInUse[i].InUse == false {
+			c.SavedRegistersInUse[i].InUse = true
+			return uint8(i)
+		}
+	}
+	for i := 0; i <= 9; i++ {
+		if c.SavedRegistersInUse[i].ToBeReleased == true {
+			c.SavedRegistersInUse[i].ToBeReleased = false
+			c.SavedRegistersInUse[i].InUse = true
+			return uint8(i)
+		}
+	}
+	return 200
+}
+
+func (c *Context) ReleaseSavedRegister(reg uint8) {
+	c.SavedRegistersInUse[reg].InUse = false
+	c.SavedRegistersInUse[reg].ToBeReleased = true
+}
+
 func (c *Context) ReleaseTemporaryRegister(reg uint8) {
+	c.TemporaryRegistersInUse[reg].InUse = false
 	c.TemporaryRegistersInUse[reg].ToBeReleased = true
 }
 
