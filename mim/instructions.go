@@ -198,16 +198,18 @@ func (c *Context) handleRead(args string) error {
 		},
 	}, false)
 
-	// set counter to -1
+	// set counter to 0
+
 	c.AddInstruction(&Instruction{
 		Opcode: "addi",
-		Args:   fmt.Sprintf("$t%d, $0, -1", counterRegister),
+		Args:   fmt.Sprintf("$t%d, $0, 0", counterRegister),
 		RegistersUsed: []uint8{
 			counterRegister,
 		},
 	}, false)
 
 	// new loop
+
 	loopName := fmt.Sprintf("loop%d", c.LoopCounter)
 	c.LoopCounter++
 	c.AddInstruction(&Instruction{
@@ -215,15 +217,9 @@ func (c *Context) handleRead(args string) error {
 		Args:          "",
 		RegistersUsed: []uint8{},
 	}, false)
-	// addi (counter, counter, 1)
-	c.AddInstruction(&Instruction{
-		Opcode: "addi",
-		Args:   fmt.Sprintf("$t%d, $t%d, 1", counterRegister, counterRegister),
-		RegistersUsed: []uint8{
-			counterRegister,
-		},
-	}, false)
-	// lw (characterRegister), 0x3000(counterRegister)
+
+	// load character from memory
+
 	c.AddInstruction(&Instruction{
 		Opcode: "lw",
 		Args:   fmt.Sprintf("$t%d, 0($t%d)", characterRegister, ioAddressRegister),
@@ -232,7 +228,9 @@ func (c *Context) handleRead(args string) error {
 			characterRegister,
 		},
 	}, false)
-	// sb (characterRegister), 0(memoryBeginningRegister)
+
+	// store character in data memory
+
 	c.AddInstruction(&Instruction{
 		Opcode: "sb",
 		Args:   fmt.Sprintf("$t%d, 0($t%d)", characterRegister, memoryBeginningRegister),
@@ -241,72 +239,90 @@ func (c *Context) handleRead(args string) error {
 			characterRegister,
 		},
 	}, false)
-	// addi memoryBeginning, memoryBeginning, 1
+
+	// test if character is less than 31
 	c.AddInstruction(&Instruction{
-		Opcode: "addi",
-		Args:   fmt.Sprintf("$t%d, $t%d, 1", memoryBeginningRegister, memoryBeginningRegister),
-		RegistersUsed: []uint8{
-			memoryBeginningRegister,
-		},
-	}, false)
-	// bgtz (characterRegister) (loopName)
-	c.AddInstruction(&Instruction{
-		Opcode: "bgtz",
-		Args:   fmt.Sprintf("$t%d, %s", characterRegister, loopName),
+		Opcode: "slti",
+		Args:   fmt.Sprintf("$t%d, $t%d, 31", characterRegister, characterRegister),
 		RegistersUsed: []uint8{
 			characterRegister,
 		},
 	}, false)
-	// four nops
+
 	c.AddInstruction(&Instruction{
-		Opcode:        "nop",
-		Args:          "",
-		RegistersUsed: []uint8{},
+		Opcode: "bgtz",
+		Args:   fmt.Sprintf("$t%d, %s", characterRegister, loopName+"-end"),
+		RegistersUsed: []uint8{
+			characterRegister,
+		},
 	}, false)
-	c.AddInstruction(&Instruction{
-		Opcode:        "nop",
-		Args:          "",
-		RegistersUsed: []uint8{},
-	}, false)
-	c.AddInstruction(&Instruction{
-		Opcode:        "nop",
-		Args:          "",
-		RegistersUsed: []uint8{},
-	}, false)
-	c.AddInstruction(&Instruction{
-		Opcode:        "nop",
-		Args:          "",
-		RegistersUsed: []uint8{},
-	}, false)
-	// set (register) to (counterRegister) - 1
+
+	// add one to the counter as well as the address
+
 	c.AddInstruction(&Instruction{
 		Opcode: "addi",
-		Args:   fmt.Sprintf("$s%d, $t%d, -1", register, counterRegister),
+		Args:   fmt.Sprintf("$t%d, $t%d, 1", counterRegister, counterRegister),
+		RegistersUsed: []uint8{
+			counterRegister,
+		},
+	}, false)
+
+	c.AddInstruction(&Instruction{
+		Opcode: "addi",
+		Args:   fmt.Sprintf("$t%d, $t%d, 1", memoryBeginningRegister, memoryBeginningRegister),
+		RegistersUsed: []uint8{
+			ioAddressRegister,
+		},
+	}, false)
+
+	// j loopName
+	c.AddInstruction(&Instruction{
+		Opcode: "j",
+		Args:   loopName,
+		RegistersUsed: []uint8{
+			characterRegister,
+		},
+	}, false)
+
+	// (loopName)-end
+	c.AddInstruction(&Instruction{
+		Opcode:        loopName + "-end:",
+		Args:          "",
+		RegistersUsed: []uint8{},
+	}, false)
+
+	// set (register) to (counterRegister)
+
+	c.AddInstruction(&Instruction{
+		Opcode: "addi",
+		Args:   fmt.Sprintf("$s%d, $t%d, 0", register, counterRegister),
 		RegistersUsed: []uint8{
 			counterRegister,
 		},
 	}, false)
 	// set (stringVar) to (register)
 	ourProgram.stringVars[varPlace].Value = "$s" + strconv.Itoa(int(register))
+	fmt.Println(ourProgram.stringVars[varPlace])
 	// free the registers
 	c.ReleaseTemporaryRegister(ioAddressRegister)
 	c.ReleaseTemporaryRegister(characterRegister)
 	c.ReleaseTemporaryRegister(counterRegister)
+	c.ReleaseTemporaryRegister(memoryBeginningRegister)
 	return nil
 }
 
 func (c *Context) handlePrint(s string) error {
-	string := ""
-	constVar := false
+	stringA := ""
+	constVar := true
 	// check if followed by a quote
 	if s[0] == '"' && s[len(s)-1] == '"' {
 		// remove quotes and add to string
-		string = s[1 : len(s)-1]
+		stringA = s[1 : len(s)-1]
 	} else if s[0] >= '0' && s[0] <= '9' {
 		// are all digits?
 		if strings.Index(s, " ") == -1 {
 			// yes, convert to int and add to string
-			string = fmt.Sprintf("%d", s)
+			stringA = fmt.Sprintf("%d", s)
 		} else {
 			// no, return error
 			return fmt.Errorf("print: invalid argument")
@@ -316,17 +332,15 @@ func (c *Context) handlePrint(s string) error {
 		for _, variable := range ourProgram.variables {
 			if variable.Name == s {
 				// yes, add to string
-				string = fmt.Sprintf("%d", variable.Value)
+				stringA = fmt.Sprintf("%d", variable.Value)
 			}
 		}
 		// check if string variable exists
 		for _, variable := range ourProgram.stringVars {
 			if variable.Name == s {
 				// yes, add to string
-				string = variable.Value
-				if variable.Constant {
-					constVar = true
-				}
+				stringA = variable.Value
+				constVar = variable.Constant
 			}
 		}
 	} else {
@@ -337,7 +351,7 @@ func (c *Context) handlePrint(s string) error {
 	// now time to convert to assembly
 	// for each character, get the ascii value
 	var asciiCodes []int
-	for _, char := range string {
+	for _, char := range stringA {
 		asciiCodes = append(asciiCodes, int(char))
 	}
 	/*
@@ -369,25 +383,34 @@ func (c *Context) handlePrint(s string) error {
 
 	tmpCharReg, _ := c.FindUnusedTemporaryRegister(RegisterCharacterHolder)
 	// if we're using a string variable and it is not constant, we need to load it (value will be the register with its length)
-	if constVar {
-		// we can generate a simple loop here
-		// addi (unused register for counter), $0, 0
-		// (generate unique name for loop)
-		// lw (character register), 0x40(counter)
-		// sw (character register), 0(mem address of output)
-		// addi (register for counter), $t0, 1
-		// beq (register for counter), (length register), 0
-		// j (unique name for loop)
-		// nop
-		// nop
-		// nop
-
+	if !constVar {
+		fmt.Println("not constant")
+		memoryBeginningRegister, _ := c.FindUnusedTemporaryRegister(RegisterGeneral)
 		counterRegister, _ := c.FindUnusedTemporaryRegister(RegisterGeneral)
+
+		// get a pointer to the beginning of the memory area
+
 		c.AddInstruction(&Instruction{
 			Opcode:        "addi",
-			Args:          fmt.Sprintf("$t%d, $0, 0", counterRegister),
+			Args:          fmt.Sprintf("$t%d, $0, 0x20", memoryBeginningRegister),
+			RegistersUsed: []uint8{memoryBeginningRegister},
+		}, false)
+		c.AddInstruction(&Instruction{
+			Opcode:        "sll",
+			Args:          fmt.Sprintf("$t%d, $t%d, 24", memoryBeginningRegister, memoryBeginningRegister),
+			RegistersUsed: []uint8{memoryBeginningRegister},
+		}, false)
+
+		// set the counterRegister to value of stringA ($s0)
+
+		c.AddInstruction(&Instruction{
+			Opcode:        "add",
+			Args:          fmt.Sprintf("$t%d, $t%d, %s", counterRegister, counterRegister, stringA),
 			RegistersUsed: []uint8{counterRegister},
 		}, false)
+
+		// new loop
+
 		loopName := fmt.Sprintf("loop%d", c.LoopCounter)
 		c.LoopCounter++
 		c.AddInstruction(&Instruction{
@@ -395,47 +418,70 @@ func (c *Context) handlePrint(s string) error {
 			Args:          "",
 			RegistersUsed: []uint8{},
 		}, false)
+
+		// branch if counter is 0
+
 		c.AddInstruction(&Instruction{
-			Opcode:        "lw",
-			Args:          fmt.Sprintf("$t%d, 0x40($t%d)", tmpCharReg, counterRegister),
-			RegistersUsed: []uint8{tmpCharReg, counterRegister},
+			Opcode:        "beq",
+			Args:          fmt.Sprintf("$t%d, $0, %s", counterRegister, loopName+"-end"),
+			RegistersUsed: []uint8{counterRegister},
 		}, false)
+
+		// load byte from memory
+
+		c.AddInstruction(&Instruction{
+			Opcode:        "lb",
+			Args:          fmt.Sprintf("$t%d, 0($t%d)", tmpCharReg, memoryBeginningRegister),
+			RegistersUsed: []uint8{memoryBeginningRegister, tmpCharReg},
+		}, false)
+
+		// increment memory address
+
+		c.AddInstruction(&Instruction{
+			Opcode:        "addi",
+			Args:          fmt.Sprintf("$t%d, $t%d, 1", memoryBeginningRegister, memoryBeginningRegister),
+			RegistersUsed: []uint8{memoryBeginningRegister},
+		}, false)
+
+		// subtract 1 from counter
+
+		veryTemporaryRegister, _ := c.FindUnusedTemporaryRegister(RegisterGeneral)
+
+		c.AddInstruction(&Instruction{
+			Opcode:        "addi",
+			Args:          fmt.Sprintf("$t%d, $0, 1", veryTemporaryRegister),
+			RegistersUsed: []uint8{veryTemporaryRegister},
+		}, false)
+
+		c.AddInstruction(&Instruction{
+			Opcode:        "sub",
+			Args:          fmt.Sprintf("$t%d, $t%d, $t%d", counterRegister, counterRegister, veryTemporaryRegister),
+			RegistersUsed: []uint8{counterRegister, veryTemporaryRegister},
+		}, false)
+
+		c.ReleaseTemporaryRegister(veryTemporaryRegister)
+
+		// print byte
+
 		c.AddInstruction(&Instruction{
 			Opcode:        "sw",
 			Args:          fmt.Sprintf("$t%d, 0($t%d)", tmpCharReg, ioReg),
-			RegistersUsed: []uint8{tmpCharReg, ioReg},
+			RegistersUsed: []uint8{ioReg, tmpCharReg},
 		}, false)
-		c.AddInstruction(&Instruction{
-			Opcode:        "addi",
-			Args:          fmt.Sprintf("$t%d, $t%d, 1", counterRegister, counterRegister),
-			RegistersUsed: []uint8{counterRegister},
-		}, false)
-		c.AddInstruction(&Instruction{
-			Opcode:        "beq",
-			Args:          fmt.Sprintf("$t%d, %s, %s", counterRegister, string, loopName),
-			RegistersUsed: []uint8{counterRegister},
-		}, false)
+
+		// jump to loop
+
 		c.AddInstruction(&Instruction{
 			Opcode:        "j",
 			Args:          loopName,
 			RegistersUsed: []uint8{},
 		}, false)
-		c.AddInstruction(&Instruction{
-			Opcode:        "nop",
-			Args:          "",
-			RegistersUsed: []uint8{},
-		}, false)
-		c.AddInstruction(&Instruction{
-			Opcode:        "nop",
-			Args:          "",
-			RegistersUsed: []uint8{},
-		}, false)
-		c.AddInstruction(&Instruction{
-			Opcode:        "nop",
-			Args:          "",
-			RegistersUsed: []uint8{},
-		}, false)
 
+		c.AddInstruction(&Instruction{
+			Opcode:        loopName + "-end:",
+			Args:          "",
+			RegistersUsed: []uint8{},
+		}, false)
 		// free the register
 		c.ReleaseTemporaryRegister(counterRegister)
 		c.ReleaseTemporaryRegister(ioReg)
