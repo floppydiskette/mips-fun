@@ -284,6 +284,14 @@ func (c *Context) handleRead(args string) error {
 		},
 	}, false)
 
+	// nop
+
+	c.AddInstruction(&Instruction{
+		Opcode:        "nop",
+		Args:          "",
+		RegistersUsed: []uint8{},
+	}, false)
+
 	// (loopName)-end
 	c.AddInstruction(&Instruction{
 		Opcode:        loopName + "-end:",
@@ -391,21 +399,18 @@ func (c *Context) handlePrint(s string) error {
 		// get a pointer to the beginning of the memory area
 
 		c.AddInstruction(&Instruction{
-			Opcode:        "addi",
-			Args:          fmt.Sprintf("$t%d, $0, 0x20", memoryBeginningRegister),
-			RegistersUsed: []uint8{memoryBeginningRegister},
-		}, false)
-		c.AddInstruction(&Instruction{
-			Opcode:        "sll",
-			Args:          fmt.Sprintf("$t%d, $t%d, 24", memoryBeginningRegister, memoryBeginningRegister),
-			RegistersUsed: []uint8{memoryBeginningRegister},
+			Opcode: "lui",
+			Args:   fmt.Sprintf("$t%d, %s", memoryBeginningRegister, "0x2000"),
+			RegistersUsed: []uint8{
+				memoryBeginningRegister,
+			},
 		}, false)
 
 		// set the counterRegister to value of stringA ($s0)
 
 		c.AddInstruction(&Instruction{
 			Opcode:        "add",
-			Args:          fmt.Sprintf("$t%d, $t%d, %s", counterRegister, counterRegister, stringA),
+			Args:          fmt.Sprintf("$t%d, $0, %s", counterRegister, stringA),
 			RegistersUsed: []uint8{counterRegister},
 		}, false)
 
@@ -474,6 +479,14 @@ func (c *Context) handlePrint(s string) error {
 		c.AddInstruction(&Instruction{
 			Opcode:        "j",
 			Args:          loopName,
+			RegistersUsed: []uint8{},
+		}, false)
+
+		// nop
+
+		c.AddInstruction(&Instruction{
+			Opcode:        "nop",
+			Args:          "",
 			RegistersUsed: []uint8{},
 		}, false)
 
