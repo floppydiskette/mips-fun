@@ -229,6 +229,16 @@ func (c *Context) handleRead(args string) error {
 		},
 	}, false)
 
+	// convert from 32 bit to 8 bit
+
+	c.AddInstruction(&Instruction{
+		Opcode: "sll",
+		Args:   fmt.Sprintf("$t%d, $t%d, 0", characterRegister, characterRegister),
+		RegistersUsed: []uint8{
+			characterRegister,
+		},
+	}, false)
+
 	// store character in data memory
 
 	c.AddInstruction(&Instruction{
